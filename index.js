@@ -32,19 +32,19 @@ async function handleRequest(request, env, ctx) {
   // Only cache GET requests
   if (request.method !== 'GET') {
     console.log('Bypassing cache for non-GET request');
-    return await fetchFromOrigin(request);
+    return await fetch(request);
   }
 
   // Don't cache /my-account or any subpaths
   if (url.pathname.startsWith('/my-account')) {
     console.log('Bypassing cache for /my-account path');
-    return await fetchFromOrigin(request);
+    return await fetch(request);
   }
 
   // Check if we should bypass cache due to WooCommerce cookies
   if (shouldBypassCache(cookies)) {
     console.log('Bypassing cache due to WooCommerce cookies');
-    return await fetchFromOrigin(request);
+    return await fetch(request);
   }
 
   // Generate custom cache key for Aelia paths
@@ -159,9 +159,4 @@ function generateCacheKey(url, cookies) {
   }
 
   return baseKey;
-}
-
-async function fetchFromOrigin(request) {
-  // Forward request to origin server (your actual site)
-  return await fetch(request);
 }
