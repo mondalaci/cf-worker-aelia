@@ -35,6 +35,12 @@ async function handleRequest(request, env, ctx) {
     return await fetchFromOrigin(request);
   }
 
+  // Don't cache /my-account or any subpaths
+  if (url.pathname.startsWith('/my-account')) {
+    console.log('Bypassing cache for /my-account path');
+    return await fetchFromOrigin(request);
+  }
+
   // Check if we should bypass cache due to WooCommerce cookies
   if (shouldBypassCache(cookies)) {
     console.log('Bypassing cache due to WooCommerce cookies');
