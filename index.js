@@ -29,6 +29,11 @@ async function handleRequest(request, env, ctx) {
   const url = new URL(request.url);
   const cookies = parseCookies(request.headers.get('Cookie') || '');
 
+  // Cache debugging endpoint
+  if (url.pathname === '/cache-debug' && request.method === 'GET') {
+    return await handleCacheDebug(url, request);
+  }
+
   // Only cache GET requests
   if (request.method !== 'GET') {
     console.log('Bypassing cache for non-GET request');
@@ -159,4 +164,86 @@ function generateCacheKey(url, cookies) {
   }
 
   return baseKey;
+}
+
+async function handleCacheDebug(url, request) {
+  const cache = caches.default;
+  const baseUrl = url.origin;
+
+  // Pages to check
+  const pagesToCheck = [
+    '/',
+    '/uhk60',
+    '/uhk80',
+    '/contact-us',
+    '/knowledgebase',
+    '/blog',
+    '/agent'
+  ];
+
+  const pageResults = {};
+
+  for (const pathname of pagesToCheck) {
+    const testUrl = new URL(pathname, baseUrl);
+    const cacheKey = generateCacheKey(testUrl, {});
+
+    const cachedResponse = await cache.match(cacheKey);
+
+    if (cachedResponse) {
+      try {
+        const clonedResponse = cachedResponse.clone();
+        const text = await clonedResponse.text();
+        const hash = await simpleHash(text);
+
+        pageResults[pathname] = {
+          cached: true,
+          hash,
+          status: cachedResponse.status,
+          contentLength: text.length,
+          cacheControl: cachedResponse.headers.get('cache-control'),
+          lastModified: cachedResponse.headers.get('last-modified'),
+          etag: cachedResponse.headers.get('etag')
+        };
+      } catch (e) {
+        pageResults[pathname] = {
+          cached: true,
+          error: `Error reading cache: ${e.message}`
+        };
+      }
+    }
+    // Don't include the key if page is not cached
+  }
+
+  // Get edge location info from CF headers
+  const edgeInfo = {
+    colo: request.cf?.colo || 'unknown',
+    country: request.cf?.country || 'unknown',
+    city: request.cf?.city || 'unknown',
+    timezone: request.cf?.timezone || 'unknown',
+    asn: request.cf?.asn || 'unknown'
+  };
+
+  const debugData = {
+    timestamp: new Date().toISOString(),
+    edgeLocation: edgeInfo,
+    pages: pageResults,
+    cachedPageCount: Object.keys(pageResults).length
+  };
+
+  return new Response(JSON.stringify(debugData, null, 2), {
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+      'X-Edge-Location': edgeInfo.colo
+    }
+  });
+}
+
+// Simple hash function for content comparison
+async function simpleHash(text) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(text);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 16);
 }

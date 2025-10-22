@@ -7,7 +7,8 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "deploy:production": "wrangler deploy --env production",
-    "tail": "wrangler tail"
+    "tail": "wrangler tail",
+    "test:cache": "zx test-cache-consistency.mjs"
   },
   "keywords": [
     "cloudflare",
@@ -21,5 +22,8 @@
   "license": "MIT",
   "devDependencies": {
     "wrangler": "^4.40.1"
+  },
+  "dependencies": {
+    "zx": "^8.8.5"
   }
 }
